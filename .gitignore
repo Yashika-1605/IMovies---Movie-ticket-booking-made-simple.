@@ -3,6 +3,10 @@ node_modules/
 /.pnp
 .pnp.js
 node.exe
+node.zip
+node-v20*/
+dist/
+
 
 
 # Production builds
