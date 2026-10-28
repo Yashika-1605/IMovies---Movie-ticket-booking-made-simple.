@@ -1,14 +1,19 @@
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const mockStore = require('../config/mockStore');
 
 /**
  * Generate signed JWT Token
  * @param {string} id User ID
+ * @param {string} role User Role
+ * @param {string} email User Email
  * @returns {string}
  */
-const generateToken = (id) => {
+const generateToken = (id, role = 'customer', email = '') => {
   return jwt.sign(
-    { id },
+    { id, role, email },
     process.env.JWT_SECRET || 'imovies_super_secure_jwt_secret_key_2026_change_in_production',
     {
       expiresIn: process.env.JWT_EXPIRES_IN || '7d',
@@ -30,6 +35,42 @@ exports.register = async (req, res, next) => {
       });
     }
 
+    if (mongoose.connection.readyState !== 1) {
+      const lower = email.toLowerCase();
+      const existing = mockStore.users.find((u) => u.email.toLowerCase() === lower);
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          message: 'An account with this email address already exists.',
+        });
+      }
+
+      const newUser = {
+        _id: '66a0' + Math.random().toString(36).substring(2, 22),
+        name,
+        email: lower,
+        passwordHash: bcrypt.hashSync(password, 10),
+        phone: phone || '',
+        role: 'customer',
+      };
+      mockStore.users.push(newUser);
+
+      const token = generateToken(newUser._id, newUser.role, newUser.email);
+
+      return res.status(201).json({
+        success: true,
+        message: 'Account created successfully!',
+        token,
+        user: {
+          id: newUser._id,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role,
+          phone: newUser.phone,
+        },
+      });
+    }
+
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
@@ -48,7 +89,7 @@ exports.register = async (req, res, next) => {
       role: 'customer',
     });
 
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, user.role, user.email);
 
     res.status(201).json({
       success: true,
@@ -81,6 +122,41 @@ exports.login = async (req, res, next) => {
       });
     }
 
+    if (mongoose.connection.readyState !== 1) {
+      const lower = email.toLowerCase().trim();
+      const user = mockStore.users.find((u) => u.email.toLowerCase() === lower);
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid email or password.',
+        });
+      }
+
+      const isMatch = bcrypt.compareSync(password, user.passwordHash);
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid email or password.',
+        });
+      }
+
+      const token = generateToken(user._id, user.role, user.email);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Logged in successfully!',
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          phone: user.phone,
+        },
+      });
+    }
+
     // Check for user and include password in query
     const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
     if (!user) {
@@ -99,7 +175,7 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, user.role, user.email);
 
     res.status(200).json({
       success: true,
@@ -123,6 +199,13 @@ exports.login = async (req, res, next) => {
 // @access  Protected
 exports.getMe = async (req, res, next) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(200).json({
+        success: true,
+        user: req.user,
+      });
+    }
+
     const user = await User.findById(req.user._id);
     res.status(200).json({
       success: true,
@@ -146,11 +229,20 @@ exports.getMe = async (req, res, next) => {
 exports.updateProfile = async (req, res, next) => {
   try {
     const { name, phone } = req.body;
-    const user = await User.findById(req.user._id);
 
+    if (mongoose.connection.readyState !== 1) {
+      if (name) req.user.name = name;
+      if (phone !== undefined) req.user.phone = phone;
+      return res.status(200).json({
+        success: true,
+        message: 'Profile updated successfully!',
+        user: req.user,
+      });
+    }
+
+    const user = await User.findById(req.user._id);
     if (name) user.name = name;
     if (phone !== undefined) user.phone = phone;
-
     await user.save();
 
     res.status(200).json({

@@ -1,5 +1,7 @@
+const mongoose = require('mongoose');
 const Seat = require('../models/Seat');
 const Show = require('../models/Show');
+const mockStore = require('../config/mockStore');
 
 // @desc    Get seats for a show (with auto-release of expired locks)
 // @route   GET /api/seats/show/:showId
@@ -7,6 +9,23 @@ const Show = require('../models/Show');
 exports.getSeatsByShow = async (req, res, next) => {
   try {
     const { showId } = req.params;
+
+    if (mongoose.connection.readyState !== 1) {
+      const show = mockStore.shows.find((s) => s._id === showId) || mockStore.shows[0];
+      const seats = mockStore.getSeats(showId);
+      return res.status(200).json({
+        success: true,
+        count: seats.length,
+        data: {
+          show: {
+            ...show,
+            movie: show.movieObj || mockStore.movies[0],
+            theatre: show.theatreObj || mockStore.theatres[0],
+          },
+          seats,
+        },
+      });
+    }
 
     // Check show existence
     const show = await Show.findById(showId);
@@ -40,7 +59,10 @@ exports.getSeatsByShow = async (req, res, next) => {
     res.status(200).json({
       success: true,
       count: seats.length,
-      data: seats,
+      data: {
+        show,
+        seats,
+      },
     });
   } catch (error) {
     next(error);
@@ -53,12 +75,30 @@ exports.getSeatsByShow = async (req, res, next) => {
 exports.lockSeats = async (req, res, next) => {
   try {
     const { showId, seatIds } = req.body;
-    const userId = req.user._id;
+    const userId = req.user ? (req.user._id || req.user.id) : 'demo-user-id';
 
     if (!showId || !Array.isArray(seatIds) || seatIds.length === 0) {
       return res.status(400).json({
         success: false,
         message: 'Please provide showId and an array of seatIds.',
+      });
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+      const seats = mockStore.getSeats(showId);
+      const lockedUntil = new Date(Date.now() + 10 * 60 * 1000);
+      seatIds.forEach((id) => {
+        const s = seats.find((seat) => seat._id === id || seat.seatNumber === id);
+        if (s && s.status === 'available') {
+          s.status = 'locked';
+          s.lockedBy = userId;
+          s.lockedUntil = lockedUntil;
+        }
+      });
+      return res.status(200).json({
+        success: true,
+        message: 'Seats locked successfully for 10 minutes.',
+        data: { lockedUntil },
       });
     }
 
@@ -99,12 +139,12 @@ exports.lockSeats = async (req, res, next) => {
       }
     );
 
-    const updatedSeats = await Seat.find({ _id: { $in: seatIds } });
-
     res.status(200).json({
       success: true,
-      message: 'Seats reserved for 10 minutes.',
-      data: updatedSeats,
+      message: 'Seats locked successfully for 10 minutes.',
+      data: {
+        lockedUntil,
+      },
     });
   } catch (error) {
     next(error);
@@ -117,13 +157,26 @@ exports.lockSeats = async (req, res, next) => {
 exports.unlockSeats = async (req, res, next) => {
   try {
     const { showId, seatIds } = req.body;
-    const userId = req.user._id;
+    const userId = req.user ? (req.user._id || req.user.id) : null;
 
     if (!showId || !Array.isArray(seatIds)) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide showId and seatIds.',
+        message: 'Please provide showId and seatIds',
       });
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+      const seats = mockStore.getSeats(showId);
+      seatIds.forEach((id) => {
+        const s = seats.find((seat) => seat._id === id || seat.seatNumber === id);
+        if (s && s.status === 'locked') {
+          s.status = 'available';
+          s.lockedBy = null;
+          s.lockedUntil = null;
+        }
+      });
+      return res.status(200).json({ success: true, message: 'Seats unlocked.' });
     }
 
     await Seat.updateMany(
@@ -131,7 +184,6 @@ exports.unlockSeats = async (req, res, next) => {
         _id: { $in: seatIds },
         show: showId,
         lockedBy: userId,
-        status: 'locked',
       },
       {
         $set: {
@@ -144,7 +196,7 @@ exports.unlockSeats = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: 'Seats released.',
+      message: 'Seats unlocked.',
     });
   } catch (error) {
     next(error);

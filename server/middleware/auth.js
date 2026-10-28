@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/User');
+const mockStore = require('../config/mockStore');
 
 /**
  * Protect routes - verifies JWT in Authorization header
@@ -26,6 +28,18 @@ const protect = async (req, res, next) => {
       token,
       process.env.JWT_SECRET || 'imovies_super_secure_jwt_secret_key_2026_change_in_production'
     );
+
+    if (mongoose.connection.readyState !== 1) {
+      const user =
+        mockStore.users.find((u) => u._id === decoded.id || u.email === decoded.email) || {
+          _id: decoded.id || 'demo-user-id',
+          name: decoded.name || 'IMovies User',
+          email: decoded.email || 'user@imovies.com',
+          role: decoded.role || 'customer',
+        };
+      req.user = user;
+      return next();
+    }
 
     const user = await User.findById(decoded.id).select('-password');
     if (!user) {
