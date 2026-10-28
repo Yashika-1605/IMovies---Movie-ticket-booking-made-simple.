@@ -7,6 +7,17 @@
 [![MongoDB](https://img.shields.io/badge/Database-MongoDB%20Atlas-forestgreen?style=for-the-badge&logo=mongodb)](https://www.mongodb.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
+> 🔗 **Mentor Evaluation & Review Links:**
+> - **Live Demo Website:** [https://snappy-saffron-ouyomn6.tmp.now](https://snappy-saffron-ouyomn6.tmp.now) *(Claim to personal Vercel: [Claim Deployment](https://vercel.com/claim-deployment?code=e3e96d1b-3f48-430e-b361-674b3e757484))*
+> - **GitHub Repository:** [https://github.com/Yashika-1605/IMovies---Movie-ticket-booking-made-simple.](https://github.com/Yashika-1605/IMovies---Movie-ticket-booking-made-simple.)
+>
+> 🔑 **Demo Accounts for Grading:**
+> - **Administrator Console:** `admin@imovies.com` / `Admin@123`
+> - **Customer Account:** `john@example.com` / `Customer@123`
+> - **Discount Coupon (20% Off):** `IMOVIES20`
+
+---
+
 **IMovies** is an enterprise-grade cinema management and real-time movie ticket booking web application built with the **MERN Stack (MongoDB, Express, React, Node.js)** and **Socket.io**. It delivers instant movie discovery, interactive visual seat selection with collision prevention, promotional checkout, digital tickets with printable passes, and a robust administrative control panel.
 
 ---
