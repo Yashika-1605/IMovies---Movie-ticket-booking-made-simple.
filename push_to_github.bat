@@ -61,7 +61,7 @@ if "%ghtoken%"=="" (
 
 echo.
 echo [INFO] Pushing with provided Personal Access Token...
-git push https://%ghtoken%@github.com/Yashika-1605/IMovies---Movie-ticket-booking-made-simple.git main
+git push https://%ghtoken%@github.com/Yashika-1605/IMovies---Movie-ticket-booking-made-simple..git main
 if %errorlevel% equ 0 (
     echo.
     echo ================================================================
