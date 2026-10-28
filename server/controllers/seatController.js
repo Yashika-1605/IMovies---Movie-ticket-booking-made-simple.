@@ -1,0 +1,152 @@
+const Seat = require('../models/Seat');
+const Show = require('../models/Show');
+
+// @desc    Get seats for a show (with auto-release of expired locks)
+// @route   GET /api/seats/show/:showId
+// @access  Public
+exports.getSeatsByShow = async (req, res, next) => {
+  try {
+    const { showId } = req.params;
+
+    // Check show existence
+    const show = await Show.findById(showId);
+    if (!show) {
+      return res.status(404).json({
+        success: false,
+        message: 'Show not found',
+      });
+    }
+
+    // Auto-release any expired locks
+    const now = new Date();
+    await Seat.updateMany(
+      {
+        show: showId,
+        status: 'locked',
+        lockedUntil: { $lte: now },
+      },
+      {
+        $set: {
+          status: 'available',
+          lockedBy: null,
+          lockedUntil: null,
+        },
+      }
+    );
+
+    // Fetch updated seats sorted by row and column
+    const seats = await Seat.find({ show: showId }).sort({ row: 1, column: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: seats.length,
+      data: seats,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    HTTP fallback: lock seats for user
+// @route   POST /api/seats/lock
+// @access  Protected
+exports.lockSeats = async (req, res, next) => {
+  try {
+    const { showId, seatIds } = req.body;
+    const userId = req.user._id;
+
+    if (!showId || !Array.isArray(seatIds) || seatIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide showId and an array of seatIds.',
+      });
+    }
+
+    const now = new Date();
+    const lockedUntil = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Check if any seat is already booked or locked by someone else
+    const conflictingSeats = await Seat.find({
+      _id: { $in: seatIds },
+      show: showId,
+      $or: [
+        { status: 'booked' },
+        {
+          status: 'locked',
+          lockedBy: { $ne: userId },
+          lockedUntil: { $gt: now },
+        },
+      ],
+    });
+
+    if (conflictingSeats.length > 0) {
+      const conflictNames = conflictingSeats.map((s) => s.seatNumber).join(', ');
+      return res.status(409).json({
+        success: false,
+        message: `Seats (${conflictNames}) are no longer available. Please select different seats.`,
+      });
+    }
+
+    // Lock seats
+    await Seat.updateMany(
+      { _id: { $in: seatIds }, show: showId },
+      {
+        $set: {
+          status: 'locked',
+          lockedBy: userId,
+          lockedUntil,
+        },
+      }
+    );
+
+    const updatedSeats = await Seat.find({ _id: { $in: seatIds } });
+
+    res.status(200).json({
+      success: true,
+      message: 'Seats reserved for 10 minutes.',
+      data: updatedSeats,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    HTTP fallback: unlock seats
+// @route   POST /api/seats/unlock
+// @access  Protected
+exports.unlockSeats = async (req, res, next) => {
+  try {
+    const { showId, seatIds } = req.body;
+    const userId = req.user._id;
+
+    if (!showId || !Array.isArray(seatIds)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide showId and seatIds.',
+      });
+    }
+
+    await Seat.updateMany(
+      {
+        _id: { $in: seatIds },
+        show: showId,
+        lockedBy: userId,
+        status: 'locked',
+      },
+      {
+        $set: {
+          status: 'available',
+          lockedBy: null,
+          lockedUntil: null,
+        },
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Seats released.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};

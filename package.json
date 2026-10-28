@@ -1,0 +1,30 @@
+{
+  "name": "imovies-cinema-management",
+  "version": "1.0.0",
+  "description": "IMovies - Movie ticket booking made simple. Full Stack MERN Application with Real-Time Seat Locking via Socket.io.",
+  "scripts": {
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "start": "npm --prefix server start",
+    "server": "npm --prefix server run dev",
+    "client": "npm --prefix client run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "npm --prefix client run build",
+    "seed": "npm --prefix server run seed"
+  },
+  "keywords": [
+    "mern",
+    "react",
+    "node",
+    "express",
+    "mongodb",
+    "socket.io",
+    "movie-ticket-booking",
+    "cinema-management",
+    "redux-toolkit"
+  ],
+  "author": "Yashika-1605",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

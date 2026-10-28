@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://imovies-api.onrender.com/api/$1"
+    },
+    {
+      "source": "/socket.io/(.*)",
+      "destination": "https://imovies-api.onrender.com/socket.io/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
