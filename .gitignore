@@ -2,6 +2,8 @@
 node_modules/
 /.pnp
 .pnp.js
+node.exe
+
 
 # Production builds
 /client/dist
