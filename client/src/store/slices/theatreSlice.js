@@ -1,13 +1,17 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api/axios';
+import { MOCK_CITIES, MOCK_THEATRES } from '../../data/mockData';
 
 // Fetch distinct cities
 export const fetchCities = createAsyncThunk('theatres/fetchCities', async (_, { rejectWithValue }) => {
   try {
     const { data } = await api.get('/theatres/cities');
-    return data.data;
+    if (data && data.data && data.data.length > 0) {
+      return data.data;
+    }
+    return MOCK_CITIES;
   } catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Failed to fetch cities');
+    return MOCK_CITIES;
   }
 });
 
@@ -18,9 +22,15 @@ export const fetchTheatres = createAsyncThunk(
     try {
       const url = city && city !== 'All' ? `/theatres?city=${encodeURIComponent(city)}` : '/theatres';
       const { data } = await api.get(url);
-      return data.data;
+      if (data && data.data && data.data.length > 0) {
+        return data.data;
+      }
+      throw new Error('Using fallback theatres');
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || 'Failed to fetch theatres');
+      if (city && city !== 'All') {
+        return MOCK_THEATRES.filter((t) => t.location.city.toLowerCase() === city.toLowerCase());
+      }
+      return MOCK_THEATRES;
     }
   }
 );

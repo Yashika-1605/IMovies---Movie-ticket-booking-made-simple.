@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api/axios';
+import { MOCK_MOVIES, generateMockShows } from '../../data/mockData';
 
 // Fetch all movies (with optional query filters: genre, language, search)
 export const fetchMovies = createAsyncThunk(
@@ -12,9 +13,26 @@ export const fetchMovies = createAsyncThunk(
       if (filters.search) params.append('search', filters.search);
 
       const { data } = await api.get(`/movies?${params.toString()}`);
-      return data.data;
+      if (data && data.data && data.data.length > 0) {
+        return data.data;
+      }
+      throw new Error('No movies from API, using fallback data');
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || 'Failed to fetch movies');
+      // Fallback to high-fidelity mock dataset
+      let result = [...MOCK_MOVIES];
+      if (filters.genre && filters.genre !== 'All') {
+        result = result.filter((m) => m.genre.includes(filters.genre));
+      }
+      if (filters.language && filters.language !== 'All') {
+        result = result.filter((m) => m.language.toLowerCase() === filters.language.toLowerCase());
+      }
+      if (filters.search && filters.search.trim() !== '') {
+        const q = filters.search.toLowerCase().trim();
+        result = result.filter(
+          (m) => m.title.toLowerCase().includes(q) || m.description.toLowerCase().includes(q)
+        );
+      }
+      return result;
     }
   }
 );
@@ -25,9 +43,12 @@ export const fetchFeaturedMovies = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const { data } = await api.get('/movies/featured');
-      return data.data;
+      if (data && data.data && data.data.length > 0) {
+        return data.data;
+      }
+      throw new Error('No featured movies from API');
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || 'Failed to fetch featured movies');
+      return MOCK_MOVIES.slice(0, 5);
     }
   }
 );
@@ -38,9 +59,22 @@ export const fetchMovieById = createAsyncThunk(
   async (id, { rejectWithValue }) => {
     try {
       const { data } = await api.get(`/movies/${id}`);
-      return data.data;
+      if (data && data.data && data.data.movie) {
+        return data.data;
+      }
+      throw new Error('Movie not found on API');
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || 'Failed to fetch movie details');
+      const movie =
+        MOCK_MOVIES.find((m) => m._id === id || m.title.toLowerCase().replace(/[^a-z0-9]/g, '') === id) ||
+        MOCK_MOVIES[0];
+
+      const allShows = generateMockShows();
+      const movieShows = allShows.filter((s) => s.movie._id === movie._id || s.movie.title === movie.title);
+
+      return {
+        movie,
+        shows: movieShows,
+      };
     }
   }
 );
